@@ -1,0 +1,28 @@
+repositories:
+  - name: hashicorp
+    url: https://helm.releases.hashicorp.com
+
+helmDefaults:
+  diffArgs:
+    - --suppress-secrets
+
+releases:
+  - name: setup
+    namespace: vault
+    chart: ./extra-resources
+    createNamespace: true
+    wait: false
+    disableValidationOnInstall: true
+    values:
+      - ./values/setup.yaml.gotmpl
+
+  - name: vault
+    namespace: vault
+    chart: hashicorp/vault
+    version: 0.34.1
+    createNamespace: true
+    wait: false
+    needs:
+      - vault/setup
+    values:
+      - ./values/vault.yaml

@@ -1,0 +1,39 @@
+server:
+  image:
+    repository: hashicorp/vault-enterprise
+    tag: 2.2.0-ent
+
+  enterpriseLicense:
+    secretName: vault-enterprise-license
+    secretKey: license
+
+  logLevel: debug
+
+  authDelegator:
+    enabled: true
+
+  dataStorage:
+    size: 200Mi
+
+  standalone:
+    enabled: true
+    config: |
+      ui = true
+      listener "tcp" {
+        tls_disable = 1
+        address = "[::]:8200"
+        cluster_address = "[::]:8201"
+      }
+      storage "file" {
+        path = "/vault/data"
+      }
+      log_format = "json"
+
+  updateStrategyType: RollingUpdate
+
+  service:
+    type: NodePort
+    nodePort: 30082
+
+injector:
+  enabled: false

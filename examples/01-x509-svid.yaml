@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: x509-demo
+  namespace: default
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: x509-demo
+  namespace: default
+spec:
+  serviceAccountName: x509-demo
+  restartPolicy: Never
+  containers:
+    - name: vault
+      image: hashicorp/vault-enterprise:2.2.0-ent
+      securityContext:
+        runAsUser: 0
+      env:
+        - name: VAULT_ADDR
+          value: http://vault.vault.svc:8200
+      command:
+        - /bin/sh
+        - -ec
+        - |
+          VAULT_TOKEN="$(vault write -field=token auth/kubernetes/login \
+            role=x509-demo \
+            jwt=@/var/run/secrets/kubernetes.io/serviceaccount/token)"
+          export VAULT_TOKEN
+
+          vault write -field=certificate pki/issue/x509-demo \
+            uri_sans=spiffe://example.org/ns/default/sa/x509-demo \
+            ttl=1h > /svid-data/svid.pem
+
+          vault read -field=certificate pki/cert/ca > /svid-data/bundle.pem
+
+          echo 'X.509-SVID saved to /svid-data/svid.pem; CA saved to /svid-data/bundle.pem.'
+          cat /svid-data/svid.pem
+
+          exec tail -f /dev/null
+      volumeMounts:
+        - name: svid-data
+          mountPath: /svid-data
+  volumes:
+    - name: svid-data
+      emptyDir:
+        medium: Memory

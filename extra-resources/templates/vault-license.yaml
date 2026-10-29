@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vault-enterprise-license
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+data:
+  license: {{ required "vaultLicense must be provided via VAULT_LICENSE" .Values.vaultLicense | b64enc | quote }}

@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jwt-demo
+  namespace: default
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: jwt-demo
+  namespace: default
+spec:
+  serviceAccountName: jwt-demo
+  restartPolicy: Never
+  containers:
+    - name: vault
+      image: hashicorp/vault-enterprise:2.2.0-ent
+      securityContext:
+        runAsUser: 0
+      env:
+        - name: VAULT_ADDR
+          value: http://vault.vault.svc:8200
+      command:
+        - /bin/sh
+        - -ec
+        - |
+          VAULT_TOKEN="$(vault write -field=token auth/kubernetes/login \
+            role=jwt-demo \
+            jwt=@/var/run/secrets/kubernetes.io/serviceaccount/token)"
+          export VAULT_TOKEN
+
+          vault write -field=token spiffe/role/jwt-demo/mintjwt \
+            audience=vault > /svid-data/svid.jwt
+          unset VAULT_TOKEN
+
+          vault write -field=token \
+            -header="Authorization=Bearer $(cat /svid-data/svid.jwt)" \
+            auth/spiffe-jwt/login role=jwt-demo type=jwt > /svid-data/vault-token
+
+          VAULT_TOKEN="$(cat /svid-data/vault-token)"
+          export VAULT_TOKEN
+          echo 'JWT-SVID saved to /svid-data/svid.jwt; SPIFFE JWT login succeeded.'
+          vault token lookup
+
+          exec tail -f /dev/null
+      volumeMounts:
+        - name: svid-data
+          mountPath: /svid-data
+  volumes:
+    - name: svid-data
+      emptyDir:
+        medium: Memory
